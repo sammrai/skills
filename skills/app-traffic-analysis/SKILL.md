@@ -19,19 +19,20 @@ End-to-end pipeline to produce `openapi.yaml` from a mobile app's HTTPS traffic.
 Create a working directory in the project (e.g. `<project>/mitmproxy/`) and run the upstream image directly — no compose file needed.
 
 ```bash
-mkdir -p <project>/mitmproxy/{mitmproxy-data,captures}
+mkdir -p <project>/mitmproxy/captures
 cd <project>/mitmproxy
 
 docker run -d --name mitmproxy --restart unless-stopped \
   -p 8080:8080 -p 8081:8081 \
-  -v "$PWD/mitmproxy-data:/home/mitmproxy/.mitmproxy" \
   -v "$PWD/captures:/captures" \
   mitmproxy/mitmproxy:latest \
   mitmweb --web-host 0.0.0.0 --set connection_strategy=lazy --ssl-insecure \
-          --set web_open_browser=false -w /captures/flows.mitm --set flow_detail=2
+          --set web_open_browser=false -w /captures/flows.mitm
 
 hostname -I | awk '{print $1}'   # note LAN IP for device proxy
 ```
+
+The device fetches the CA via `http://mitm.it` through the proxy, so there is no need to mount `mitmproxy-data/` to the host. If the container is recreated, the CA regenerates and all trusting devices must re-install it — mount `mitmproxy-data` only when that tradeoff matters.
 
 Web UI: `http://localhost:8081`.
 
