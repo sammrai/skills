@@ -1,0 +1,11 @@
+{
+  "name": "sammrai-skills",
+  "description": "Personal Claude Code skills collection",
+  "version": "0.1.0",
+  "skills": [
+    {
+      "name": "app-traffic-analysis",
+      "path": "skills/app-traffic-analysis"
+    }
+  ]
+}
