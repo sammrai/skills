@@ -9,19 +9,27 @@ End-to-end pipeline to produce `openapi.yaml` from a mobile app's HTTPS traffic.
 
 ## Pipeline
 
-1. Scaffold mitmproxy + mitmproxy2swagger via docker
+1. Start mitmproxy to capture traffic
 2. Route the target device through the proxy and install the CA
-3. Capture traffic while exercising the target app
-4. Run mitmproxy2swagger to produce `openapi.yaml`
+3. Exercise the target app while flows are recorded
+4. Run mitmproxy2swagger against the capture to produce `openapi.yaml`
 
-## Step 1: Scaffold
+## Step 1: Start mitmproxy
 
-Create `<project>/mitmproxy/` and place both `assets/docker-compose.yml` and `assets/mitmproxy2swagger.Dockerfile` inside. Edit `container_name` in the compose file per project.
+Create a working directory in the project (e.g. `<project>/mitmproxy/`) and run the upstream image directly — no compose file needed.
 
 ```bash
+mkdir -p <project>/mitmproxy/{mitmproxy-data,captures}
 cd <project>/mitmproxy
-docker compose up -d
-docker build -t m2s -f mitmproxy2swagger.Dockerfile .
+
+docker run -d --name mitmproxy --restart unless-stopped \
+  -p 8080:8080 -p 8081:8081 \
+  -v "$PWD/mitmproxy-data:/home/mitmproxy/.mitmproxy" \
+  -v "$PWD/captures:/captures" \
+  mitmproxy/mitmproxy:latest \
+  mitmweb --web-host 0.0.0.0 --set connection_strategy=lazy --ssl-insecure \
+          --set web_open_browser=false -w /captures/flows.mitm --set flow_detail=2
+
 hostname -I | awk '{print $1}'   # note LAN IP for device proxy
 ```
 
@@ -50,28 +58,28 @@ Launch the target app on the device and exercise every feature relevant to the A
 
 ## Step 4: Generate openapi.yaml
 
-mitmproxy2swagger is inherently two-pass: pass 1 emits a draft where every detected path is prefixed `ignore:`; pass 2 materializes paths whose `ignore:` has been removed.
+Pull the pre-built image once, then run the two-pass workflow. The fork at `ghcr.io/sammrai/mitmproxy2swagger:xml` adds XML response schema inference on top of upstream's JSON and msgpack support; JSON-only APIs work equally well with this image.
 
 ```bash
-# Pass 1: draft
-docker run --rm -v <project>/mitmproxy:/work m2s \
+docker pull ghcr.io/sammrai/mitmproxy2swagger:xml
+
+# Pass 1: draft with all endpoints prefixed `ignore:`
+docker run --rm -v "$PWD:/work" ghcr.io/sammrai/mitmproxy2swagger:xml \
   -i /work/captures/flows.mitm -o /work/openapi.yaml -p https://<target-host> -f flow
 
 # Un-ignore all templated {id} paths (keeps literal numeric duplicates ignored)
-sed -i -E '/\{id\}/ s/^- ignore:/- /' <project>/mitmproxy/openapi.yaml
+sed -i -E '/\{id\}/ s/^- ignore:/- /' openapi.yaml
 
-# Pass 2: materialize paths and query params (add `-e` to include response examples)
-docker run --rm -v <project>/mitmproxy:/work m2s \
+# Pass 2: materialize paths, query params, response schemas (add `-e` for examples)
+docker run --rm -v "$PWD:/work" ghcr.io/sammrai/mitmproxy2swagger:xml \
   -i /work/captures/flows.mitm -o /work/openapi.yaml -p https://<target-host> -f flow -s
 ```
 
 After pass 2, `openapi.yaml` contains paths, query parameter types, and response schemas for JSON, msgpack, and XML payloads.
 
-**Note on the Docker image:** `assets/mitmproxy2swagger.Dockerfile` installs the patched fork at `sammrai/mitmproxy2swagger@feat/xml-response-support`, which adds XML response schema inference on top of upstream. If upstream merges the patch, switch back to `pip install mitmproxy2swagger`.
-
 ## Cert Pinning
 
-If the target app's API host consistently produces `Client TLS handshake failed` in `docker logs`, the app has certificate pinning. Handling, in order of effort:
+If the target app's API host consistently produces `Client TLS handshake failed` in `docker logs mitmproxy`, the app has certificate pinning. Handling, in order of effort:
 
 1. Try an older version of the app (often unpinned)
 2. Rooted/jailbroken device + `objection -g <id> explore` → `ios sslpinning disable` / `android sslpinning disable`
@@ -82,8 +90,3 @@ Pinning failures against Apple/Google infrastructure domains (iCloud, gstatic) a
 ## Legal Note
 
 This workflow assumes the target app is one's own, or that reverse engineering is permitted under the target service's ToS or a security-research context. Captured APIs should not be used against third-party services in production in ways that violate ToS — prefer official APIs, public feeds, or HTML scraping of public pages for production data pipelines.
-
-## Assets
-
-- `assets/docker-compose.yml` — mitmproxy service (edit `container_name` per project)
-- `assets/mitmproxy2swagger.Dockerfile` — one-shot runner image for mitmproxy2swagger
