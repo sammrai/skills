@@ -1,11 +1,22 @@
 {
   "name": "sammrai-skills",
-  "description": "Personal Claude Code skills collection",
-  "version": "0.1.0",
-  "skills": [
+  "owner": {
+    "name": "sammrai",
+    "email": "13623491+sammrai@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "Personal Claude Code skills collection",
+    "version": "0.1.0"
+  },
+  "plugins": [
     {
       "name": "app-traffic-analysis",
-      "path": "skills/app-traffic-analysis"
+      "description": "Capture mobile app HTTPS traffic via mitmproxy and auto-generate openapi.yaml (mitmproxy2swagger with XML response support)",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/app-traffic-analysis"
+      ]
     }
   ]
 }
