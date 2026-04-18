@@ -16,11 +16,10 @@ End-to-end pipeline to produce `openapi.yaml` from a mobile app's HTTPS traffic.
 
 ## Step 1: Start mitmproxy
 
-Create a working directory in the project (e.g. `<project>/mitmproxy/`) and run the upstream image directly — no compose file needed.
+From the project root, create a `captures/` directory and start the upstream image directly — no compose file needed.
 
 ```bash
-mkdir -p <project>/mitmproxy/captures
-cd <project>/mitmproxy
+mkdir -p captures
 
 docker run -d --name mitmproxy --restart unless-stopped \
   -p 8080:8080 -p 8081:8081 \
@@ -59,7 +58,7 @@ Launch the target app on the device and exercise every feature relevant to the A
 
 ## Step 4: Generate openapi.yaml
 
-Pull the pre-built image once, then run the two-pass workflow. The fork at `ghcr.io/sammrai/mitmproxy2swagger:xml` adds XML response schema inference on top of upstream's JSON and msgpack support; JSON-only APIs work equally well with this image.
+Pull the pre-built image once, then run the two-pass workflow from the project root (where `captures/` lives and `openapi.yaml` will be written). The fork at `ghcr.io/sammrai/mitmproxy2swagger:xml` adds XML response schema inference on top of upstream's JSON and msgpack support; JSON-only APIs work equally well with this image.
 
 ```bash
 docker pull ghcr.io/sammrai/mitmproxy2swagger:xml
