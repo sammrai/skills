@@ -17,6 +17,15 @@
       "skills": [
         "./skills/app-traffic-analysis"
       ]
+    },
+    {
+      "name": "browser-har-capture",
+      "description": "Record and verify browser HAR for web application workflows",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/browser-har-capture"
+      ]
     }
   ]
 }
